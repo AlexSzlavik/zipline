@@ -28,6 +28,8 @@ import app.cash.zipline.loader.internal.receiver.FsSaveReceiver
 import app.cash.zipline.loader.internal.receiver.Receiver
 import app.cash.zipline.loader.internal.receiver.ZiplineLoadReceiver
 import app.cash.zipline.loader.internal.systemEpochMsClock
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
@@ -55,7 +57,7 @@ import okio.Path
  * loading.
  */
 class ZiplineLoader internal constructor(
-  private val dispatcher: CoroutineDispatcher,
+  private val coroutineContext: CoroutineContext,
   private val manifestVerifier: ManifestVerifier,
   private val httpFetcher: HttpFetcher,
   private val eventListener: EventListener,
@@ -65,13 +67,34 @@ class ZiplineLoader internal constructor(
   private val cache: ZiplineCache?,
 ) {
   constructor(
+    coroutineContext: CoroutineContext,
+    manifestVerifier: ManifestVerifier,
+    httpClient: ZiplineHttpClient,
+    eventListener: EventListener = EventListener.NONE,
+    nowEpochMs: () -> Long = systemEpochMsClock,
+  ) : this(
+    coroutineContext = coroutineContext,
+    manifestVerifier = manifestVerifier,
+    httpFetcher = HttpFetcher(httpClient, eventListener),
+    eventListener = eventListener,
+    nowEpochMs = nowEpochMs,
+    embeddedDir = null,
+    embeddedFileSystem = null,
+    cache = null,
+  )
+
+  @Deprecated(
+    message = "This is here for binary-compatibility only",
+    level = DeprecationLevel.HIDDEN,
+  )
+  constructor(
     dispatcher: CoroutineDispatcher,
     manifestVerifier: ManifestVerifier,
     httpClient: ZiplineHttpClient,
     eventListener: EventListener = EventListener.NONE,
     nowEpochMs: () -> Long = systemEpochMsClock,
   ) : this(
-    dispatcher = dispatcher,
+    coroutineContext = dispatcher,
     manifestVerifier = manifestVerifier,
     httpFetcher = HttpFetcher(httpClient, eventListener),
     eventListener = eventListener,
@@ -101,7 +124,7 @@ class ZiplineLoader internal constructor(
     cache: ZiplineCache? = this.cache,
   ): ZiplineLoader {
     return ZiplineLoader(
-      dispatcher = dispatcher,
+      coroutineContext = coroutineContext,
       manifestVerifier = manifestVerifier,
       httpFetcher = httpFetcher,
       eventListener = eventListener,
@@ -149,11 +172,14 @@ class ZiplineLoader internal constructor(
    * @param manifestUrlFlow a flow that should emit each time a load should be attempted. This
    *     may emit periodically to trigger polling. It should also emit for loading triggers like
    *     app launch, app foregrounding, and network connectivity changed.
+   * @param coroutineContext this will be combined with the ZiplineLoader's coroutineContext when
+   *     creating a [Zipline] instance.
    */
   fun load(
     applicationName: String,
     manifestUrlFlow: Flow<String>,
     serializersModule: SerializersModule = EmptySerializersModule(),
+    coroutineContext: CoroutineContext = EmptyCoroutineContext,
     initializer: (Zipline) -> Unit = {},
   ): Flow<LoadResult> {
     return channelFlow {
@@ -172,6 +198,7 @@ class ZiplineLoader internal constructor(
           applicationName,
           manifestUrl,
           serializersModule,
+          coroutineContext,
           initializer,
         )
         if (loadedFromNetwork != null) {
@@ -186,6 +213,7 @@ class ZiplineLoader internal constructor(
             now,
             applicationName,
             serializersModule,
+            coroutineContext,
             initializer,
           )
           if (loadedFromLocal != null) {
@@ -196,12 +224,32 @@ class ZiplineLoader internal constructor(
     }
   }
 
+  @Deprecated(
+    message = "This is here for binary-compatibility only",
+    level = DeprecationLevel.HIDDEN,
+  )
+  fun load(
+    applicationName: String,
+    manifestUrlFlow: Flow<String>,
+    serializersModule: SerializersModule = EmptySerializersModule(),
+    initializer: (Zipline) -> Unit = {},
+  ): Flow<LoadResult> {
+    return load(
+      applicationName = applicationName,
+      manifestUrlFlow = manifestUrlFlow,
+      serializersModule = serializersModule,
+      coroutineContext = EmptyCoroutineContext,
+      initializer = initializer,
+    )
+  }
+
   private suspend fun ProducerScope<LoadResult>.loadFromNetwork(
     previousManifest: ZiplineManifest?,
     now: Long,
     applicationName: String,
     manifestUrl: String,
     serializersModule: SerializersModule,
+    coroutineContext: CoroutineContext,
     initializer: (Zipline) -> Unit,
   ): ZiplineManifest? {
     val startValue = eventListener.applicationLoadStart(applicationName, manifestUrl)
@@ -220,6 +268,7 @@ class ZiplineLoader internal constructor(
         applicationName,
         loadedManifest,
         serializersModule,
+        coroutineContext,
         now,
         initializer,
       )
@@ -251,6 +300,7 @@ class ZiplineLoader internal constructor(
     now: Long,
     applicationName: String,
     serializersModule: SerializersModule,
+    coroutineContext: CoroutineContext,
     initializer: (Zipline) -> Unit,
   ): ZiplineManifest? {
     val loadedManifest = loadCachedOrEmbeddedManifest(applicationName, now)
@@ -262,6 +312,7 @@ class ZiplineLoader internal constructor(
         applicationName,
         loadedManifest,
         serializersModule,
+        coroutineContext,
         now,
         initializer,
       )
@@ -285,15 +336,40 @@ class ZiplineLoader internal constructor(
     }
   }
 
+  @Deprecated(
+    message = "This is here for binary-compatibility only",
+    level = DeprecationLevel.HIDDEN,
+  )
   suspend fun loadOnce(
     applicationName: String,
     manifestUrl: String,
     serializersModule: SerializersModule = EmptySerializersModule(),
     initializer: (Zipline) -> Unit = {},
+  ): LoadResult {
+    return loadOnce(
+      applicationName = applicationName,
+      manifestUrl = manifestUrl,
+      serializersModule = serializersModule,
+      coroutineContext = EmptyCoroutineContext,
+      initializer = initializer
+    )
+  }
+
+  /**
+   * @param coroutineContext this will be combined with the ZiplineLoader's coroutineContext when
+   *     creating a [Zipline] instance.
+   */
+  suspend fun loadOnce(
+    applicationName: String,
+    manifestUrl: String,
+    serializersModule: SerializersModule = EmptySerializersModule(),
+    coroutineContext: CoroutineContext = EmptyCoroutineContext,
+    initializer: (Zipline) -> Unit = {},
   ): LoadResult = load(
     applicationName,
     flowOf(manifestUrl),
     serializersModule,
+    coroutineContext,
     initializer,
   ).first()
 
@@ -306,10 +382,15 @@ class ZiplineLoader internal constructor(
     applicationName: String,
     loadedManifest: LoadedManifest,
     serializersModule: SerializersModule,
+    coroutineContext: CoroutineContext,
     nowEpochMs: Long,
     initializer: (Zipline) -> Unit,
   ): Zipline {
-    val zipline = Zipline.create(dispatcher, serializersModule, eventListener)
+    val zipline = Zipline.create(
+      coroutineContext = this.coroutineContext + coroutineContext,
+      serializersModule = serializersModule,
+      eventListener = eventListener,
+    )
     try {
       receive(
         ZiplineLoadReceiver(zipline, eventListener),
@@ -431,7 +512,7 @@ class ZiplineLoader internal constructor(
         "checksum mismatch for $id"
       }
       upstreams.joinAll()
-      withContext(dispatcher) {
+      withContext(coroutineContext) {
         receiver.receive(byteString, id, module.sha256)
       }
     }

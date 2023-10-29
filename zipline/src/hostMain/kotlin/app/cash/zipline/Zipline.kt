@@ -28,6 +28,7 @@ import app.cash.zipline.internal.bridge.Endpoint
 import app.cash.zipline.internal.bridge.ZiplineServiceAdapter
 import app.cash.zipline.internal.initModuleLoader
 import app.cash.zipline.internal.loadJsModule
+import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -42,7 +43,6 @@ actual class Zipline private constructor(
   @property:EngineApi
   val quickJs: QuickJs,
   userSerializersModule: SerializersModule,
-  dispatcher: CoroutineDispatcher,
   private val scope: CoroutineScope,
   private val eventListener: EventListener,
 ) {
@@ -87,7 +87,7 @@ actual class Zipline private constructor(
     // Eagerly publish the channel so the guest can call us.
     quickJs.initOutboundChannel(endpoint.inboundChannel)
 
-    val eventLoop = CoroutineEventLoop(dispatcher, scope, guest)
+    val eventLoop = CoroutineEventLoop(scope, guest)
 
     endpoint.bind<HostService>(
       name = ZIPLINE_HOST_NAME,
@@ -159,8 +159,12 @@ actual class Zipline private constructor(
   }
 
   companion object {
+    /**
+     * @param coroutineContext this must have a [CoroutineDispatcher] that dispatches all tasks to
+     *     a single thread.
+     */
     fun create(
-      dispatcher: CoroutineDispatcher,
+      coroutineContext: CoroutineContext,
       serializersModule: SerializersModule = EmptySerializersModule(),
       eventListener: EventListener = EventListener.NONE,
     ): Zipline {
@@ -171,10 +175,24 @@ actual class Zipline private constructor(
       quickJs.maxStackSize = 6 * 1024 * 1024L
       initModuleLoader(quickJs)
 
-      val scope = CoroutineScope(dispatcher)
-      val result = Zipline(quickJs, serializersModule, dispatcher, scope, eventListener)
+      val scope = CoroutineScope(coroutineContext)
+      val result = Zipline(quickJs, serializersModule, scope, eventListener)
       eventListener.ziplineCreated(result)
       return result
     }
+
+    @Deprecated(
+      message = "This is here for binary-compatibility only",
+      level = DeprecationLevel.HIDDEN,
+    )
+    fun create(
+      dispatcher: CoroutineDispatcher,
+      serializersModule: SerializersModule = EmptySerializersModule(),
+      eventListener: EventListener = EventListener.NONE,
+    ): Zipline = create(
+      coroutineContext = dispatcher as CoroutineContext,
+      serializersModule = serializersModule,
+      eventListener = eventListener,
+    )
   }
 }

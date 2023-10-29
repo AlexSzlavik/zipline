@@ -44,7 +44,7 @@ fun ZiplineLoader(
   nowEpochMs: () -> Long = systemEpochMsClock,
 ): ZiplineLoader {
   return ZiplineLoader(
-    dispatcher = dispatcher,
+    coroutineContext = dispatcher,
     manifestVerifier = manifestVerifier,
     httpClient = urlSession.asZiplineHttpClient(),
     eventListener = eventListener,

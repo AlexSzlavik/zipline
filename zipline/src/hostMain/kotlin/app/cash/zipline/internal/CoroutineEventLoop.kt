@@ -15,57 +15,30 @@
  */
 package app.cash.zipline.internal
 
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart.UNDISPATCHED
+import kotlinx.coroutines.CoroutineStart.DEFAULT
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
-/**
- * We implement scheduled work with raw calls to [CoroutineDispatcher.dispatch] because it prevents
- * recursion. Otherwise, it's easy to unintentionally have `setTimeout(0, ...)` calls that execute
- * immediately, eventually exhausting stack space and crashing the process.
- */
 internal class CoroutineEventLoop(
-  private val dispatcher: CoroutineDispatcher,
   private val scope: CoroutineScope,
   private val guestService: GuestService,
 ) {
-  private val jobs = mutableMapOf<Int, DelayedJob>()
+  private val jobs = mutableMapOf<Int, Job>()
 
   fun setTimeout(timeoutId: Int, delayMillis: Int) {
-    val job = DelayedJob(timeoutId, delayMillis)
-    jobs[timeoutId] = job
-    dispatcher.dispatch(scope.coroutineContext, job)
+    // This must be DEFAULT to prevent recursion on jobs scheduled with setTimeout(0, ...).
+    jobs[timeoutId] = scope.launch(start = DEFAULT) {
+      delay(delayMillis.toLong())
+      scope.ensureActive() // Necessary as delay() won't detect cancellation if the duration is 0.
+      guestService.runJob(timeoutId)
+      jobs.remove(timeoutId)
+    }
   }
 
   fun clearTimeout(timeoutId: Int) {
     jobs.remove(timeoutId)?.cancel()
-  }
-
-  private inner class DelayedJob(
-    val timeoutId: Int,
-    val delayMillis: Int,
-  ) : Runnable {
-    var canceled = false
-    var job: Job? = null
-
-    override fun run() {
-      if (canceled) return
-      this.job = scope.launch(start = UNDISPATCHED) {
-        delay(delayMillis.toLong())
-        scope.ensureActive() // Necessary as delay() won't detect cancellation if the duration is 0.
-        guestService.runJob(timeoutId)
-        jobs.remove(timeoutId)
-      }
-    }
-
-    fun cancel() {
-      canceled = true
-      job?.cancel()
-    }
   }
 }
