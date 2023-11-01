@@ -31,7 +31,7 @@ buildscript {
     classpath(libs.kotlin.serialization)
     classpath(libs.dokka.gradle.plugin)
     classpath(libs.shadowJar.gradle.plugin)
-    classpath(libs.cklib.gradle.plugin)
+//    classpath(libs.cklib.gradle.plugin)
     classpath(libs.sqldelight.gradle.plugin)
     classpath(libs.downloadTask.gradle.plugin)
   }

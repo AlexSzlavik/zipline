@@ -1,4 +1,4 @@
-import co.touchlab.cklib.gradle.CompileToBitcode.Language.C
+//import co.touchlab.cklib.gradle.CompileToBitcode.Language.C
 import com.vanniktech.maven.publish.JavadocJar
 import com.vanniktech.maven.publish.KotlinMultiplatform
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
@@ -16,7 +16,7 @@ plugins {
   id("com.android.library")
   id("org.jetbrains.dokka")
   id("com.vanniktech.maven.publish.base")
-  id("co.touchlab.cklib")
+//  id("co.touchlab.cklib")
   id("com.github.gmazzo.buildconfig")
   id("binary-compatibility-validator")
 }
@@ -173,26 +173,26 @@ buildConfig {
   }
 }
 
-cklib {
-  config.kotlinVersion = libs.versions.kotlin.get()
-  create("quickjs") {
-    language = C
-    srcDirs = project.files(file("native/quickjs"), file("native/common"))
-    compilerArgs.addAll(
-      listOf(
-        //"-DDUMP_LEAKS=1", // For local testing ONLY!
-        "-DKONAN_MI_MALLOC=1",
-        "-DCONFIG_VERSION=\"${quickJsVersion()}\"",
-        "-Wno-unknown-pragmas",
-        "-ftls-model=initial-exec",
-        "-Wno-unused-function",
-        "-Wno-error=atomic-alignment",
-        "-Wno-sign-compare",
-        "-Wno-unused-parameter" /* for windows 32 */
-      )
-    )
-  }
-}
+//cklib {
+//  config.kotlinVersion = libs.versions.kotlin.get()
+//  create("quickjs") {
+//    language = C
+//    srcDirs = project.files(file("native/quickjs"), file("native/common"))
+//    compilerArgs.addAll(
+//      listOf(
+//        //"-DDUMP_LEAKS=1", // For local testing ONLY!
+//        "-DKONAN_MI_MALLOC=1",
+//        "-DCONFIG_VERSION=\"${quickJsVersion()}\"",
+//        "-Wno-unknown-pragmas",
+//        "-ftls-model=initial-exec",
+//        "-Wno-unused-function",
+//        "-Wno-error=atomic-alignment",
+//        "-Wno-sign-compare",
+//        "-Wno-unused-parameter" /* for windows 32 */
+//      )
+//    )
+//  }
+//}
 
 android {
   namespace = "app.cash.zipline"
