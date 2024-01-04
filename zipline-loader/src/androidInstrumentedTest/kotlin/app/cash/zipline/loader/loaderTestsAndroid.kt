@@ -15,8 +15,8 @@
  */
 package app.cash.zipline.loader
 
+import app.cash.zipline.loader.internal.SecureRandom
 import app.cash.zipline.loader.internal.cache.SqlDriverFactory
-import java.security.SecureRandom
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
 

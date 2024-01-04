@@ -16,7 +16,6 @@
 package app.cash.zipline.loader.internal
 
 import app.cash.zipline.Zipline
-import java.security.SecureRandom
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
 internal actual fun Zipline.multiplatformLoadJsModule(bytecode: ByteArray, id: String) =
