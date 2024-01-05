@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Block, Inc.
+ * Copyright (C) 2024 Cash App
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package app.cash.zipline.loader.internal
+package app.cash.zipline.security
 
-class SecureRandom : Random, java.security.SecureRandom() {
-  override fun nextBytes(sink: ByteArray) = super.nextBytes(sink)
+import app.cash.zipline.Zipline
 
-  override fun nextLong(): Long = super.nextLong()
+/** Guest-side API to Zipline's security services. */
+class ZiplineSecurity(zipline: Zipline) {
+  private val securityService = zipline.take<ZiplineSecurityService>("zipline/security")
+
+  val secureRandom: SecureRandom = SecureRandom(securityService)
 }

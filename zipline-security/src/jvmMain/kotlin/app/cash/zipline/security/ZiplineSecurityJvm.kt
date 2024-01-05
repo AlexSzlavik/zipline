@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Block, Inc.
+ * Copyright (C) 2024 Cash App
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,23 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package app.cash.zipline.loader.internal
+package app.cash.zipline.security
 
 import app.cash.zipline.Zipline
 import java.security.SecureRandom
-import okhttp3.HttpUrl.Companion.toHttpUrl
 
-internal actual fun Zipline.multiplatformLoadJsModule(bytecode: ByteArray, id: String) =
-  loadJsModule(bytecode, id)
-
-internal actual val ecdsaP256: SignatureAlgorithm = EcdsaP256(secureRandom())
-
-internal fun secureRandom(): SecureRandom {
-  return SecureRandom().also { it.nextLong() } // Force seeding.
-}
-
-internal actual val systemEpochMsClock: () -> Long = System::currentTimeMillis
-
-internal actual fun resolveUrl(baseUrl: String, link: String): String {
-  return baseUrl.toHttpUrl().resolve(link)!!.toString()
+actual fun Zipline.installSecurityService() {
+  installSecurityServiceInternal(RealZiplineSecurityService(SecureRandom()))
 }

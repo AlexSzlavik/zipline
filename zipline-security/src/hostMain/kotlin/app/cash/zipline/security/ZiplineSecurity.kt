@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Block, Inc.
+ * Copyright (C) 2024 Cash App
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package app.cash.zipline.loader.internal
+package app.cash.zipline.security
 
-interface Random {
-  fun nextBytes(sink: ByteArray)
+import app.cash.zipline.Zipline
 
-  fun nextLong(): Long
+expect fun Zipline.installSecurityService()
+
+internal fun Zipline.installSecurityServiceInternal(ziplineSecurityService: ZiplineSecurityService) {
+  bind("zipline/security", ziplineSecurityService)
 }

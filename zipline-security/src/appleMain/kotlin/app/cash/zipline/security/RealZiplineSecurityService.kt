@@ -15,40 +15,36 @@
  */
 @file:OptIn(ExperimentalForeignApi::class)
 
-package app.cash.zipline.loader.internal
+package app.cash.zipline.security
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.pin
-import okio.Buffer
-import okio.use
 import platform.Security.SecRandomCopyBytes
 import platform.Security.errSecSuccess
 import platform.Security.kSecRandomDefault
 
-class SecureRandom : Random {
-  override fun nextBytes(sink: ByteArray) {
-    val pin = sink.pin()
+class RealZiplineSecurityService : ZiplineSecurityService {
+  override fun nextSecureRandomBytes(size: Int): ByteArray {
+    val result = ByteArray(size)
+    val pin = result.pin()
     val bytesPointer = when {
-      sink.isNotEmpty() -> pin.addressOf(0)
+      result.isNotEmpty() -> pin.addressOf(0)
       else -> null
     }
 
     val status = SecRandomCopyBytes(
-      kSecRandomDefault, sink.size.convert(), bytesPointer
+      kSecRandomDefault,
+      result.size.convert(),
+      bytesPointer,
     )
     pin.unpin()
 
     require(status == errSecSuccess) {
       "failed to generate random bytes."
     }
-  }
 
-  override fun nextLong(): Long {
-    val bytes = ByteArray(8) // initialize 64 bits
-    nextBytes(bytes)
-
-    return Buffer().use { it.write(bytes).readLong() }
+    return result
   }
 }
